@@ -1,10 +1,14 @@
 // Type definitions
 export interface GreekWord {
-  greek: string;
   pronunciation: string;
   meaning: string;
   difficulty: 1 | 2 | 3;
-  greekSyllables: string;
+  greek: string;
+}
+
+// Utility function to get the full Greek word from syllables
+export function getGreekWord(greekSyllables: string): string {
+  return greekSyllables.replace(/-/g, '');
 }
 
 export interface SessionStats {
@@ -13,9 +17,25 @@ export interface SessionStats {
   currentStreak: number;
 }
 
-// Filter words by difficulty
-export function filterWordsByDifficulty(words: GreekWord[], difficulty: 1 | 2 | 3): GreekWord[] {
-  return words.filter(word => word.difficulty <= difficulty);
+// Shuffle array using Fisher-Yates algorithm
+export function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Filter words by selected difficulties
+export function filterWordsByDifficulty(words: GreekWord[], selectedDifficulties: number[]): GreekWord[] {
+  return words.filter(word => selectedDifficulties.includes(word.difficulty));
+}
+
+// Get all available difficulties from the word list
+export function getAvailableDifficulties(words: GreekWord[]): number[] {
+  const difficulties = new Set(words.map(word => word.difficulty));
+  return Array.from(difficulties).sort((a, b) => a - b);
 }
 
 // Get next card with spaced repetition logic
@@ -26,7 +46,7 @@ export function getNextCard(
 ): GreekWord {
   const recentCards = cardHistory.slice(-recentCount);
   const availableCards = availableWords.filter(word =>
-    !recentCards.some(recent => recent.greek === word.greek)
+    !recentCards.some(recent => getGreekWord(recent.greekSyllables) === getGreekWord(word.greekSyllables))
   );
   if (availableCards.length === 0) {
     return availableWords[Math.floor(Math.random() * availableWords.length)];

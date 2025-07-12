@@ -1,75 +1,45 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, ReactElement } from 'react';
-import { Play, Pause, RotateCcw, Target, Clock, BookOpen, Volume2 } from 'lucide-react';
+import { ChevronRight, Settings } from 'lucide-react';
 import greekWordsData from '../data/greekWords.json';
 import {
   GreekWord,
-  SessionStats,
   filterWordsByDifficulty,
-  getNextCard,
-  updateStatsForNextCard,
-  resetSessionStats,
-  autoAdvanceDifficulty
+  getGreekWord,
+  getAvailableDifficulties
 } from '../lib/greekReaderLogic';
 
 const GreekSpeedReader: React.FC = () => {
   const [currentCard, setCurrentCard] = useState<GreekWord | null>(null);
-  const [difficulty, setDifficulty] = useState<1 | 2 | 3>(1);
-  const [showPronunciation, setShowPronunciation] = useState<boolean>(true);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [cardHistory, setCardHistory] = useState<GreekWord[]>([]);
-  const [stats, setStats] = useState<SessionStats>(resetSessionStats());
-  const [intervalTime, setIntervalTime] = useState<number>(3000);
-  const [autoPlay, setAutoPlay] = useState<boolean>(false);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>([1]);
+  const [showGreekSyllables, setShowGreekSyllables] = useState<boolean>(true);
+  const [showPhoneticPronunciation, setShowPhoneticPronunciation] = useState<boolean>(true);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [isClosing, setIsClosing] = useState<boolean>(false);
+  const [isOpening, setIsOpening] = useState<boolean>(false);
+  const [availableWords, setAvailableWords] = useState<GreekWord[]>([]);
 
-  // Filter words by current difficulty
-  const availableWords: GreekWord[] = filterWordsByDifficulty(greekWordsData as GreekWord[], difficulty);
+  // Get available difficulties from the data
+  const availableDifficulties = getAvailableDifficulties(greekWordsData as GreekWord[]);
 
-  // Show next card
+  // Filter words by selected difficulties
+  useEffect(() => {
+    const filteredWords: GreekWord[] = filterWordsByDifficulty(greekWordsData as GreekWord[], selectedDifficulties);
+    setAvailableWords(filteredWords);
+    // Set initial random card
+    if (filteredWords.length > 0) {
+      const randomIndex = Math.floor(Math.random() * filteredWords.length);
+      setCurrentCard(filteredWords[randomIndex]);
+    }
+  }, [selectedDifficulties]);
+
   const showNextCard = useCallback((): void => {
-    const nextCard = getNextCard(availableWords, cardHistory);
-    setCurrentCard(nextCard);
-    setCardHistory(prev => [...prev, nextCard].slice(-10));
-    setStats(prev => updateStatsForNextCard(prev));
-  }, [availableWords, cardHistory]);
-
-  // Auto-play functionality
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoPlay && isPlaying) {
-      interval = setInterval(() => {
-        showNextCard();
-      }, intervalTime);
+    if (availableWords.length > 0) {
+      const randomIndex = Math.floor(Math.random() * availableWords.length);
+      setCurrentCard(availableWords[randomIndex]);
     }
-    return () => clearInterval(interval);
-  }, [autoPlay, isPlaying, intervalTime, showNextCard]);
-
-  // Session timer
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPlaying) {
-      timer = setInterval(() => {
-        setStats(prev => ({
-          ...prev,
-          sessionTime: prev.sessionTime + 1
-        }));
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isPlaying]);
-
-  // Initialize first card
-  useEffect(() => {
-    if (!currentCard) {
-      showNextCard();
-    }
-  }, [currentCard, showNextCard]);
-
-  // Auto-advance difficulty
-  useEffect(() => {
-    setDifficulty(prev => autoAdvanceDifficulty(stats.cardsShown, prev));
-  }, [stats.cardsShown]);
+  }, [availableWords]);
 
   // Format pronunciation with syllable highlighting
   const formatPronunciation = (pronunciation: string): ReactElement[] => {
@@ -84,7 +54,7 @@ const GreekSpeedReader: React.FC = () => {
         >
           {syllable}
           {index < pronunciation.split('-').length - 1 && (
-            <span className="text-gray-400 mx-1">·</span>
+            <span className="text-gray-400">·</span>
           )}
         </span>
       );
@@ -107,21 +77,15 @@ const GreekSpeedReader: React.FC = () => {
         >
           {syllable}
           {index < greekSylls.length - 1 && (
-            <span className="text-gray-400 mx-1">·</span>
+            <span className="text-gray-400">·</span>
           )}
         </span>
       );
     });
   };
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const getDifficultyColor = (diff: 1 | 2 | 3): string => {
-    switch(diff) {
+    switch (diff) {
       case 1: return 'bg-green-100 text-green-800';
       case 2: return 'bg-yellow-100 text-yellow-800';
       case 3: return 'bg-red-100 text-red-800';
@@ -129,235 +93,245 @@ const GreekSpeedReader: React.FC = () => {
     }
   };
 
-  const resetSession = (): void => {
-    setStats(resetSessionStats());
-    setCardHistory([]);
-    setDifficulty(1);
-    setIsPlaying(false);
-    setAutoPlay(false);
-    showNextCard();
+  const getDifficultyLabel = (diff: number): string => {
+    switch (diff) {
+      case 1: return 'Short words';
+      case 2: return 'Medium words';
+      case 3: return 'Long words';
+      default: return `Difficulty ${diff}`;
+    }
   };
 
-  const handlePlayPause = (): void => {
-    setIsPlaying(!isPlaying);
+  const handleGreekSyllablesToggle = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setShowGreekSyllables(e.target.checked);
   };
 
-  const handleAutoPlayToggle = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setAutoPlay(e.target.checked);
+  const handlePhoneticPronunciationToggle = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setShowPhoneticPronunciation(e.target.checked);
   };
 
-  const handlePronunciationToggle = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setShowPronunciation(e.target.checked);
+  const handleDifficultyToggle = (difficulty: number): void => {
+    setSelectedDifficulties(prev => {
+      if (prev.includes(difficulty)) {
+        // Don't allow deselecting the last difficulty
+        if (prev.length === 1) return prev;
+        return prev.filter(d => d !== difficulty);
+      } else {
+        return [...prev, difficulty].sort((a, b) => a - b);
+      }
+    });
   };
 
-  const handleIntervalTimeChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    setIntervalTime(parseInt(e.target.value));
-  };
-
-  const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    setDifficulty(parseInt(e.target.value) as 1 | 2 | 3);
+  const toggleSettings = (): void => {
+    if (showSettings) {
+      setIsClosing(true);
+      setTimeout(() => {
+        setShowSettings(false);
+        setIsClosing(false);
+      }, 300);
+    } else {
+      setShowSettings(true);
+      setIsOpening(true);
+      setTimeout(() => {
+        setIsOpening(false);
+      }, 50);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pt-6">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-5xl font-bold text-gray-900 mb-2">
             Ελληνικά
           </h1>
-          <p className="text-gray-400">
-            Improve your Greek reading speed with progressive difficulty
+          <p className="text-gray-400 pt-2">
+            Practice your Greek reading skills
           </p>
-        </div>
-
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Cards Shown</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.cardsShown}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-500" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Session Time</p>
-                <p className="text-2xl font-bold text-gray-900">{formatTime(stats.sessionTime)}</p>
-              </div>
-              <Clock className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Difficulty</p>
-                <p className="text-2xl font-bold text-gray-900">{difficulty}</p>
-              </div>
-              <Target className="h-8 w-8 text-purple-500" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Current Streak</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.currentStreak}</p>
-              </div>
-              <div className="text-orange-500">🔥</div>
-            </div>
-          </div>
         </div>
 
         {/* Main Card */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 mb-8">
           {currentCard && (
             <div className="text-center space-y-6">
-              {/* Difficulty Badge */}
-              <div className="flex justify-center">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(currentCard.difficulty)}`}>
-                  Difficulty {currentCard.difficulty}
-                </span>
-              </div>
-
               {/* Greek Word */}
               <div className="space-y-4">
-                <h2 className="text-6xl font-bold text-gray-900 tracking-wide">
-                  {currentCard.greek}
+                <h2 className="font-bold text-gray-900 tracking-wide text-3xl sm:text-3xl md:text-5xl lg:text-6xl">
+                  {getGreekWord(currentCard.greek)}
                 </h2>
-                
+
                 {/* Pronunciation */}
-                {showPronunciation && (
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center justify-center mb-3">
-                      <Volume2 className="h-5 w-5 text-gray-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">Pronunciation</span>
-                    </div>
+                {(showGreekSyllables || showPhoneticPronunciation) && (
+                  <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     
+
                     {/* Greek Syllables */}
-                    <div className="mb-3">
-                      <div className="text-2xl font-mono">
-                        {formatGreekSyllables(currentCard.greekSyllables, currentCard.pronunciation)}
+                    {showGreekSyllables && (
+                      <div>
+                        <div className="text-xs/7 sm:text-sm md:text-lg lg:text-xl font-mono">
+                          {formatGreekSyllables(currentCard.greek, currentCard.pronunciation)}
+                        </div>
                       </div>
-                    </div>
-                    
+                    )}
+
                     {/* Latin Pronunciation */}
-                    <div>
-                      <div className="text-2xl font-mono">
-                        {formatPronunciation(currentCard.pronunciation)}
+                    {showPhoneticPronunciation && (
+                      <div>
+                        <div className="text-xs/7 sm:text-sm md:text-lg lg:text-xl font-mono">
+                          {formatPronunciation(currentCard.pronunciation)}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
                 {/* Meaning */}
-                <div className="text-xl text-gray-600">
+                <div className="text-xl sm:text-2xl md:text-2xl text-gray-600">
                   <span className="font-medium">Meaning:</span> {currentCard.meaning}
+                </div>
+
+                {/* Difficulty Badge */}
+                <div className="flex justify-center">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(currentCard.difficulty)}`}>
+                    Difficulty {currentCard.difficulty}
+                  </span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Controls */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Playback Controls */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Playback Controls</h3>
-              
-              <div className="flex items-center space-x-4">
+        {/* Next Button */}
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={showNextCard}
+            className="px-8 py-4 rounded-lg font-medium transition-all flex items-center bg-green-500 hover:bg-green-600 text-white text-lg"
+          >
+            <span className="mr-2">Next Card</span>
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Settings Gear Button */}
+        <div className="fixed bottom-6 right-6">
+          <button
+            onClick={toggleSettings}
+            className="bg-white rounded-full p-3 shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+          >
+            <Settings className="h-6 w-6 text-gray-600" />
+          </button>
+        </div>
+
+        {/* Settings Popup */}
+        {showSettings && (
+          <div
+            className={`fixed inset-0 bg-black/50 flex items-end justify-center z-50 transition-opacity duration-300 ${
+              isClosing ? 'opacity-0' : 'opacity-100'
+            }`}
+            onClick={toggleSettings}
+          >
+            <div
+              className={`bg-white rounded-t-xl shadow-lg border border-gray-200 p-6 max-w-sm w-full mx-4 mb-0 transition-transform duration-300 ease-out ${
+                isClosing ? 'translate-y-full' : isOpening ? 'translate-y-full' : 'translate-y-0'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Settings</h3>
                 <button
-                  onClick={handlePlayPause}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all flex items-center ${
-                    isPlaying 
-                      ? 'bg-red-500 hover:bg-red-600 text-white' 
-                      : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}
+                  onClick={toggleSettings}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                  <span className="ml-2">{isPlaying ? 'Pause' : 'Start'}</span>
-                </button>
-                
-                <button
-                  onClick={showNextCard}
-                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all"
-                >
-                  Next Card
-                </button>
-                
-                <button
-                  onClick={resetSession}
-                  className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center"
-                >
-                  <RotateCcw className="h-5 w-5" />
+                  ✕
                 </button>
               </div>
 
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={autoPlay}
-                    onChange={handleAutoPlayToggle}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Auto-play</span>
+              <div className="space-y-4">
+                <label className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Show Greek syllables</span>
+                  <span className="relative inline-block w-11 align-middle select-none transition duration-200 ease-in">
+                    <input
+                      type="checkbox"
+                      checked={showGreekSyllables}
+                      onChange={handleGreekSyllablesToggle}
+                      className="sr-only peer"
+                    />
+                    <span
+                      className={`
+                        block h-6 rounded-full transition-colors duration-200
+                        ${showGreekSyllables ? 'bg-blue-600' : 'bg-gray-200'}
+                      `}
+                    ></span>
+                    <span
+                      className={`
+                        absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200
+                        ${showGreekSyllables ? 'translate-x-5' : ''}
+                      `}
+                    ></span>
+                  </span>
                 </label>
-                
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Speed:</label>
-                  <select
-                    value={intervalTime}
-                    onChange={handleIntervalTimeChange}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={1000}>1s</option>
-                    <option value={2000}>2s</option>
-                    <option value={3000}>3s</option>
-                    <option value={5000}>5s</option>
-                    <option value={10000}>10s</option>
-                  </select>
-                </div>
-              </div>
-            </div>
 
-            {/* Display Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Display Settings</h3>
-              
-              <div className="space-y-3">
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    checked={showPronunciation}
-                    onChange={handlePronunciationToggle}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Show pronunciation</span>
+                <label className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Show phonetic pronunciation</span>
+                  <span className="relative inline-block w-11 align-middle select-none transition duration-200 ease-in">
+                    <input
+                      type="checkbox"
+                      checked={showPhoneticPronunciation}
+                      onChange={handlePhoneticPronunciationToggle}
+                      className="sr-only peer"
+                    />
+                    <span
+                      className={`
+                        block h-6 rounded-full transition-colors duration-200
+                        ${showPhoneticPronunciation ? 'bg-blue-600' : 'bg-gray-200'}
+                      `}
+                    ></span>
+                    <span
+                      className={`
+                        absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200
+                        ${showPhoneticPronunciation ? 'translate-x-5' : ''}
+                      `}
+                    ></span>
+                  </span>
                 </label>
-                
-                <div className="flex items-center space-x-3">
-                  <label className="text-sm font-medium text-gray-700">Max difficulty:</label>
-                  <select
-                    value={difficulty}
-                    onChange={handleDifficultyChange}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={1}>1 (Short words)</option>
-                    <option value={2}>2 (Medium words)</option>
-                    <option value={3}>3 (Long words)</option>
-                  </select>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Difficulty levels:</label>
+                  <div className="space-y-2">
+                    {availableDifficulties.map((difficulty) => (
+                      <label key={difficulty} className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                          {difficulty} ({getDifficultyLabel(difficulty)})
+                        </span>
+                        <span className="relative inline-block w-11 align-middle select-none transition duration-200 ease-in">
+                          <input
+                            type="checkbox"
+                            checked={selectedDifficulties.includes(difficulty)}
+                            onChange={() => handleDifficultyToggle(difficulty)}
+                            className="sr-only peer"
+                          />
+                          <span
+                            className={`
+                              block h-6 rounded-full transition-colors duration-200
+                              ${selectedDifficulties.includes(difficulty) ? 'bg-blue-600' : 'bg-gray-200'}
+                            `}
+                          ></span>
+                          <span
+                            className={`
+                              absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200
+                              ${selectedDifficulties.includes(difficulty) ? 'translate-x-5' : ''}
+                            `}
+                          ></span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
