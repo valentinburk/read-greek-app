@@ -1,7 +1,7 @@
 export interface GreekWord {
   pronunciation: string;
   meaning: string;
-  difficulty: 1 | 2 | 3;
+  difficulty: 1 | 2 | 3 | 4;
   greek: string;
 }
 

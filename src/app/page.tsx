@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import greekWordsData from '../data/greekWords.json';
 import { GreekWord } from '../lib/types';
 import { filterWordsByDifficulty, getAvailableDifficulties } from '../lib/greekReaderLogic';
+import { parseCSV } from '../lib/csvParser';
 import { Header } from '../components/Header';
 import { GreekCard } from '../components/GreekCard';
 import { NavigationButtons } from '../components/NavigationButtons';
@@ -19,20 +19,34 @@ const GreekSpeedReader: React.FC = () => {
   const [isOpening, setIsOpening] = useState<boolean>(false);
   const [availableWords, setAvailableWords] = useState<GreekWord[]>([]);
   const [isCardTransitioning, setIsCardTransitioning] = useState<boolean>(false);
+  const [greekWordsData, setGreekWordsData] = useState<GreekWord[]>([]);
+
+  // Load CSV data
+  useEffect(() => {
+    fetch('/greekWords.csv')
+      .then(response => response.text())
+      .then(csvContent => {
+        const words = parseCSV(csvContent);
+        setGreekWordsData(words);
+      })
+      .catch(error => {
+        console.error('Error loading CSV data:', error);
+      });
+  }, []);
 
   // Get available difficulties from the data
-  const availableDifficulties = getAvailableDifficulties(greekWordsData as GreekWord[]);
+  const availableDifficulties = getAvailableDifficulties(greekWordsData);
 
   // Filter words by selected difficulties
   useEffect(() => {
-    const filteredWords: GreekWord[] = filterWordsByDifficulty(greekWordsData as GreekWord[], selectedDifficulties);
+    const filteredWords: GreekWord[] = filterWordsByDifficulty(greekWordsData, selectedDifficulties);
     setAvailableWords(filteredWords);
     // Set initial random card
     if (filteredWords.length > 0) {
       const randomIndex = Math.floor(Math.random() * filteredWords.length);
       setCurrentCard(filteredWords[randomIndex]);
     }
-  }, [selectedDifficulties]);
+  }, [selectedDifficulties, greekWordsData]);
 
   const showNextCard = useCallback((): void => {
     if (availableWords.length > 0) {
