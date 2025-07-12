@@ -19,6 +19,7 @@ const GreekSpeedReader: React.FC = () => {
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [isOpening, setIsOpening] = useState<boolean>(false);
   const [availableWords, setAvailableWords] = useState<GreekWord[]>([]);
+  const [isCardTransitioning, setIsCardTransitioning] = useState<boolean>(false);
 
   // Get available difficulties from the data
   const availableDifficulties = getAvailableDifficulties(greekWordsData as GreekWord[]);
@@ -36,8 +37,14 @@ const GreekSpeedReader: React.FC = () => {
 
   const showNextCard = useCallback((): void => {
     if (availableWords.length > 0) {
-      const randomIndex = Math.floor(Math.random() * availableWords.length);
-      setCurrentCard(availableWords[randomIndex]);
+      setIsCardTransitioning(true);
+      setTimeout(() => {
+        const randomIndex = Math.floor(Math.random() * availableWords.length);
+        setCurrentCard(availableWords[randomIndex]);
+        setTimeout(() => {
+          setIsCardTransitioning(false);
+        }, 50);
+      }, 300);
     }
   }, [availableWords]);
 
@@ -154,10 +161,10 @@ const GreekSpeedReader: React.FC = () => {
         {/* Main Card */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 mb-8">
           {currentCard && (
-            <div className="text-center space-y-6">
+            <div className={`text-center space-y-6 transition-opacity duration-300 ${isCardTransitioning ? 'opacity-0' : 'opacity-100'}`}>
               {/* Greek Word */}
               <div className="space-y-4">
-                <h2 className="font-bold text-gray-900 tracking-wide text-3xl sm:text-3xl md:text-5xl lg:text-6xl">
+                <h2 className="font-bold text-gray-900 tracking-wide text-3xl sm:text-3xl md:text-5xl lg:text-6xl pb-2">
                   {getGreekWord(currentCard.greek)}
                 </h2>
 
@@ -202,13 +209,13 @@ const GreekSpeedReader: React.FC = () => {
           )}
         </div>
 
-        {/* Next Button */}
-        <div className="flex justify-center mb-8">
+        {/* Next Card Button - Fixed at bottom center */}
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2">
           <button
             onClick={showNextCard}
-            className="px-8 py-4 rounded-lg font-medium transition-all flex items-center bg-green-500 hover:bg-green-600 text-white text-lg"
+            className="bg-green-500 hover:bg-green-600 rounded-full pt-3 pb-3 pl-8 pr-4 shadow-lg border border-green-200 hover:shadow-xl transition-all flex items-center text-white font-medium"
           >
-            <span className="mr-2">Next Card</span>
+            <span className="mr-2">Next</span>
             <ChevronRight className="h-6 w-6" />
           </button>
         </div>
